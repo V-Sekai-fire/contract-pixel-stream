@@ -26,8 +26,15 @@ jobs:
           lake exe wire_vectors > /tmp/corpus.txt
           diff -u vectors/corpus.txt /tmp/corpus.txt
 
-      - name: no sorry
+      # Grepping the source is not enough: a tactic can introduce `sorry`
+      # without the word appearing anywhere, which is how `plausible` closes a
+      # goal it could not falsify. Read the compiler's own warning instead.
+      - name: no sorry, including tactic-introduced
         run: |
+          lake build 2>&1 | tee build.log
+          if grep -n "declaration uses 'sorry'" build.log; then
+            echo "a declaration is admitted rather than proved"; exit 1
+          fi
           if grep -rnw sorry PixelStream/ Main.lean; then
             echo "a proof is stubbed"; exit 1
           fi

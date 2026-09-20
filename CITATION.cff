@@ -44,11 +44,14 @@ references:
   - type: software
     title: "Plausible"
     abstract: >-
-      Lean-community property-testing library. Used as a Lake dependency for
-      randomized cross-checks of the reassembly model. The build-time agreement
-      between the model and its declared expectations is decided by
-      `native_decide` rather than by Plausible, so a Plausible regression cannot
-      silently weaken the corpus.
+      Lean-community property-testing library. Evaluated and NOT used. Its
+      `plausible` tactic searches for a counter-example and, finding none,
+      closes the goal with `sorry` -- which exports a tested guess as a proven
+      fact. `PixelStream/Falsify.lean` runs the same kind of randomized search
+      over a seeded generator and settles the result with `native_decide`
+      instead, so nothing is admitted. Cited because the design owes it the
+      idea, not the code, and because recording why a reasonable tool was
+      rejected is worth more than silence.
     repository-code: "https://github.com/leanprover-community/plausible"
     license: Apache-2.0
   - type: software
