@@ -23,9 +23,8 @@ This is the honest part, and it is a longer list than it is comfortable to write
   not destroy a frame. Every loss figure in `codec-measurements.md` assumes it
   does.
 - **FEC**, for when retransmission is too slow to help.
-- **Congestion control and bandwidth estimation**, which drive the encoder's
-  bitrate in a loop. Nothing here estimates bandwidth or tells the encoder
-  anything.
+- **A bitrate control loop.** The estimate itself is not missing -- see the
+  correction below -- but nothing here closes the loop from it to the encoder.
 - **PLI and FIR**, so a decoder that has lost sync can ask for a fresh
   intra frame rather than wait.
 - **A jitter buffer**, absorbing arrival variance before presentation.
@@ -53,6 +52,18 @@ an inference runtime, and nothing forces the frontend to be used.
 target the implementation has to arrive as an external GDExtension. So adopting
 WebRTC here means taking on a large third-party media stack, while the QUIC path
 is already vendored, already native, and already tested in-tree.
+
+## Correction: QUIC gives back two of these
+
+The list above overstated the gap, and RFC 9221 settles it. DATAGRAM frames
+*"employ the QUIC connection's congestion controller"*, and although they are
+*"not retransmitted upon loss detection, they are ack-eliciting"* -- so the
+sender is told, per datagram, whether it arrived.
+
+That is congestion control and a loss signal for free, which is the raw material
+a bitrate controller needs. What remains genuinely absent is retransmission
+(given up deliberately), FEC, a jitter buffer, and the control loop that turns
+the loss signal into an encoder bitrate.
 
 ## What that costs, stated rather than discovered later
 
