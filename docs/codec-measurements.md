@@ -15,8 +15,8 @@ bitrates are upper bounds and the CPU frame rates are lower bounds.
 | SVT-AV1 preset 12, CPU, 16 threads | 60.9 | 16.4 | 21.8 | same |
 | SVT-AV1 preset 10, CPU, 16 threads | 55.6 | 18.0 | 20.9 | same |
 | NVENC AV1, RTX 4090 | **571.6** | **1.75** | **26.9** | driver, loaded at runtime |
-| NVENC HEVC, RTX 4090 | 942.7 | 1.06 | 19.4 | driver; HEVC patent pools |
-| NVENC H.264, RTX 4090 | 631.5 | 1.58 | 30.9 | driver; H.264 patent pools |
+| NVENC HEVC, RTX 4090 | 942.7 | 1.06 | 19.4 | driver; **HEVC pools -- rejected, see below** |
+| NVENC H.264, RTX 4090 | 631.5 | 1.58 | 30.9 | driver; **AVC pool -- rejected, see below** |
 
 SVT-AV1 v4.2.0, low delay (`--pred-struct 1 --lookahead 0`), CRF 35.
 NVENC via PyNvVideoCodec 2.2.3, preset P1, `ultra_low_latency`, timings include
@@ -45,7 +45,9 @@ no encoder, and should be labelled that way.
 
 **HEVC is faster than AV1 and smaller, and is still the wrong answer.** The
 speed is real; the patent position is not comparable. AV1's AOMedia Patent
-License 1.0 is an actual royalty-free grant. HEVC and H.264 have active pools.
+License 1.0 is an actual royalty-free grant. HEVC and H.264 have active pools,
+and HEVC's are the worst of any option here -- see the rejection below, which
+also withdraws a later section of this document that recommended HEVC anyway.
 
 ## Why AV1 rather than JPEG XS
 
@@ -222,6 +224,43 @@ Per card, 60-frame runs, same source:
 
 The 120-frame figures in the first table are the better estimate; these shorter
 runs carry more start-up cost per frame.
+
+## HEVC is out, and that makes the 3090 not a streaming server
+
+The section above recommends HEVC on the 3090. That is withdrawn too, and it
+contradicted this document's own table, which already recorded that HEVC and
+H.264 carry active patent pools before recommending one of them anyway.
+
+HEVC is the worst of the options on licensing, not merely encumbered: several
+competing pools plus holders in none of them, and royalties that have been
+asserted against distributing content rather than only against encoders. AV1
+exists to escape exactly that, and AOMedia Patent License 1.0 is the escape.
+H.264 is calmer but is the same category, so swapping HEVC for H.264 is not a
+fix, it is a smaller dose.
+
+What that leaves is a hardware fact rather than a codec choice:
+
+| card | royalty-free hardware encode | so |
+| --- | --- | --- |
+| RTX 4090 | AV1 | the streaming server |
+| RTX 3090 | **none** | not a streaming server |
+
+The 3090 has no royalty-free hardware encoder at all. Its only clean paths are
+software, and both are poor for streaming: SVT-AV1 at 60 fps only by taking all
+sixteen threads the renderer needs, or CineForm at 470 Mbps which will not leave
+a LAN. Neither is a fallback so much as a different deployment.
+
+So the honest statement is a requirement: **hardware AV1 encode, which today
+means Ada or newer.** A desk without it renders locally, shares by texture, or
+streams on a LAN in CineForm -- it does not become a WAN streaming server by
+picking a more encumbered codec. Writing that down as a requirement is better
+than shipping HEVC and discovering the licence later.
+
+This also shifts the earlier ranking. For the same-machine case Spout was
+already first on latency; it is now first on licensing as well, because sharing
+a texture encodes nothing and so infringes nothing. And CineForm's 470 Mbps buys
+something the table did not credit it for: Apache-2.0 OR MIT with no pool behind
+it, which on a 10GbE segment is a perfectly defensible trade.
 
 ## What is still open
 
