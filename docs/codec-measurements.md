@@ -380,6 +380,60 @@ and a third of the wire for a LAN deployment, and it makes the 10GbE row in the
 ranking comfortable rather than marginal. It does not move CineForm out of the
 LAN row and into the WAN row. Hardware AV1 stays the WAN answer.
 
+## HDR: the engine throws it away, and the obvious fix is not yet safe
+
+`MovieWriter::_request_frame_async` supports `R16G16B16A16_SFLOAT` and hands
+back `FORMAT_RGBAH`. `MovieWriterCineForm::write_frame` then does this,
+unconditionally, before the encoder is called:
+
+    if (img->get_format() != Image::FORMAT_RGBA8) {
+        img->convert(Image::FORMAT_RGBA8);
+    }
+
+So high dynamic range and high bit depth are already gone today, at the writer,
+not at the codec. RFD 1123 reasons about 12-bit CineForm and about `FORMAT_RGBAH`
+losing the bottom bit -- reasoning that only makes sense if depth reaches the
+encoder. It does not. That is a larger defect than the chroma format beside it.
+
+**The shape of the fix is clear.** CineForm takes 16-bit input directly:
+`CFHD_PIXEL_FORMAT_RG64` is 16-bit RGBA on the encoder side, and the codec's own
+`WP13` decoder format documents a whitepoint at `1<<13`. Scaling half-float so
+1.0 lands on 8192 rather than 65535 keeps 13 bits below white and leaves three
+stops of highlight headroom, instead of clipping at white the way an 8-bit
+conversion does.
+
+**It encodes. It has not been shown to decode.** Fed RG64 at that scaling, the
+encoder accepts every frame and produces output three times *smaller* than the
+8-bit path -- 673.8 Mbps against 2062.4 at LOW. A smaller file with no quality
+check is not a better one; it is equally consistent with the signal having been
+quantized into the floor. The round-trip decode back to RG64 ends the process
+before a single row prints, so there is no PSNR for the 16-bit path and no
+evidence it survives.
+
+**So the engine is not changed.** Wiring an unverified colour conversion into
+the writer would replace a known, honest loss with an unknown one. What it needs
+first is a working `CFHD_PrepareToDecode`/`CFHD_DecodeSample` round trip at
+RG64, and a PSNR against the source.
+
+## What the round trip did establish: the quality ladder is a real quality cut
+
+Decoding the 8-bit path back and scoring the first frame against its source, on
+the high-detail clip:
+
+| quality | Mbps | PSNR |
+| --- | --- | --- |
+| LOW | 2062.4 | **28.6 dB** |
+| MEDIUM | 2635.1 | 34.6 dB |
+| HIGH | 3309.0 | 40.3 dB |
+| FILMSCAN1 | 3738.4 | 42.6 dB |
+
+This corrects the earlier ladder table, which gave sizes and no quality and so
+made `LOW` look like a free 0.62x. It is not free: on this content `LOW` is 28.6
+dB, nowhere near visually lossless, and the 12 dB between `LOW` and `FILMSCAN1`
+is most of what the extra bitrate buys. Any future comparison against AV1 has to
+put both codecs at a matched PSNR, which is exactly the quality-matching this
+document withdrew a ratio for lacking.
+
 ## What is still open
 
 - The CineForm baseline is now partly measured here, single-threaded only. The
