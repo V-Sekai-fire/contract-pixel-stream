@@ -10,7 +10,7 @@ bitrates are upper bounds and the CPU frame rates are lower bounds.
 
 | encoder | fps | ms/frame | Mbps | licence |
 | --- | --- | --- | --- | --- |
-| CineForm (**not measured here** -- see below) | 112 | 8.9 | 470 | Apache-2.0 OR MIT |
+| CineForm (**borrowed figure; see the two sections on it below**) | 112 | 8.9 | 470 | Apache-2.0 OR MIT |
 | SVT-AV1 preset 13, CPU, 16 threads | 60.3 | 16.6 | 21.8 | BSD-3-Clause-Clear + AOM Patent 1.0 |
 | SVT-AV1 preset 12, CPU, 16 threads | 60.9 | 16.4 | 21.8 | same |
 | SVT-AV1 preset 10, CPU, 16 threads | 55.6 | 18.0 | 20.9 | same |
@@ -35,7 +35,9 @@ should not be quoted as one until it is.
 
 **Hardware AV1 wins on both axes at once.** 1.75 ms a frame against CineForm's
 ~8.9, and 26.9 Mbps against 470. That is five times the speed and seventeen
-times less wire. 470 Mbps saturates half a gigabit link for one viewer; 26.9
+times less wire -- **but the bitrate half of that is withdrawn below as not
+quality-matched**, so treat the direction as sound and the multiplier as
+unestablished. 470 Mbps saturates half a gigabit link for one viewer; 26.9
 Mbps is about one 4K streaming-service video, and fits an ordinary home uplink.
 
 **Software AV1 does not.** At preset 12-13 it reaches 60 fps for 1080p60 -- with
@@ -292,9 +294,55 @@ refusal is a start-time failure naming the card -- not a silent downgrade to an
 encumbered codec, which is the failure this document has spent two retractions
 avoiding.
 
+## CineForm does have a smaller form, and the earlier comparison was not fair
+
+Measured on this desk at last, so the borrowed baseline above is partly
+replaced. Same source, 1920x1080 4:4:4 BGRA from the high-detail clip's luma,
+24 frames, **one encoder, not the pool**:
+
+| quality | Mbps | KiB/frame | vs default |
+| --- | --- | --- | --- |
+| LOW | 2062.4 | 4196 | 0.62x |
+| MEDIUM | 2635.1 | 5361 | 0.80x |
+| HIGH *(module default)* | 3309.0 | 6732 | 1.00x |
+| FILMSCAN1 | 3738.4 | 7606 | 1.13x |
+| FILMSCAN2, FILMSCAN3 | encoder exits | -- | -- |
+
+So yes: `modules/cineform` defaults to index 2, `HIGH`, and `LOW` and `MEDIUM`
+sit below it. `LOW` is a little under two thirds the size of the default. That
+is the smaller form, and it is a quality knob rather than a different codec.
+
+**Three things this run does not support, and one it withdraws.**
+
+The frame rates are not comparable to anything above. The async encoder pool
+never returned a sample on this desk -- submissions were accepted, and
+`CFHD_WaitForSample` then blocked forever -- so this uses the synchronous
+`CFHD_EncodeSample` path with a single encoder. About 28 fps single-threaded
+against a published 112 fps on sixteen threads is consistent, but it is not a
+measurement of the same thing and must not be put in the same column.
+
+`FILMSCAN2` and `FILMSCAN3` end the process. Reproducible across runs, no
+output on stderr, and the four levels before them are byte-identical each time.
+Not investigated.
+
+The source flatters nobody. High-detail synthetic noise is close to worst case
+for a wavelet codec, which is why these figures sit far above RFD 1137's 0.47
+Gbit/s. That is the clip, not the codec.
+
+**And the withdrawal.** The first table in this document put CineForm's 470
+Mbps beside AV1's 26.9 Mbps and called it seventeen times less wire. That
+comparison is not quality-matched: CineForm was encoding near-losslessly while
+SVT-AV1 and NVENC ran at CRF 35, quantizing hard. Two codecs at different
+quality targets cannot be divided. The direction almost certainly holds --
+hardware AV1 is dramatically smaller for streaming -- but **the multiplier is
+not established by anything measured here**, and the earlier figure should not
+be quoted until a quality-matched run exists.
+
 ## What is still open
 
-- The CineForm baseline needs measuring here before this table is quoted.
+- The CineForm baseline is now partly measured here, single-threaded only. The
+  pool path still needs to work before a like-for-like frame rate exists, and no
+  run yet matches quality across codecs, which is what a bitrate ratio needs.
 - AV1 at 26.9 Mbps is ~2800 datagrams a frame at 1200 bytes, so the
   datagram-versus-stream-per-frame question in the README is unchanged by these
   numbers and still wants its own measurement.
