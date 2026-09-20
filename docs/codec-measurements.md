@@ -474,6 +474,60 @@ protocol should carry both paths rather than pick now. `WebTransportPeer`
 already exposes both, and `Reassembly.lean` already proves the datagram side is
 safe under reorder and loss.
 
+## Retracted: the codec decision rested on an unrepresentative clip
+
+Re-run on real content -- 96 renders from `6-datasource/anny-render-corpus-constructed`,
+1024x1024, fetched from LFS -- CineForm looks nothing like it did on synthetic
+noise:
+
+| encoder | Mbps | PSNR | B/frame | frags | loss@0.1% | loss@1% |
+| --- | --- | --- | --- | --- | --- | --- |
+| CineForm 4:4:4 LOW | 76.7 | 47.1 dB | 159,792 | 136 | 12.7% | 74.5% |
+| CineForm 4:2:2 LOW | 44.5 | 46.5 dB | 92,708 | 79 | 7.6% | 54.8% |
+| CineForm 4:2:2 HIGH | 52.9 | 48.8 dB | -- | -- | -- | -- |
+| NVENC AV1, CRF 35 | 15.96 | unknown | 33,250 | 29 | 2.9% | 25.3% |
+
+**The gap is 2.8x, not the 29x to 240x this document reported.** And CineForm is
+doing it at 47 dB, which is near visually lossless, while the AV1 column is CRF
+35 with no PSNR measured at all.
+
+So the earlier conclusion -- "three quarters of frames die at a tenth of a
+percent, hardware AV1 is the pixel-streaming codec" -- was an artifact of the
+source. On noise CineForm needed 1363 fragments a frame; on renders it needs 79.
+That is not a tuning difference, it is the difference between a clip built from
+a PRNG and one built from the thing actually being streamed.
+
+**Neither clip is right, and that is the honest position.** The noise clip is
+close to worst case for a wavelet codec and penalises CineForm. The render
+corpus is 96 *unrelated* poses, so every frame is a scene cut and AV1's
+inter-frame prediction gets nothing at all -- which penalises AV1 just as hard in
+the other direction. Real pixel streaming is a moving camera over a coherent
+scene, where AV1 would pull far ahead again and CineForm, being intra-only,
+would not move.
+
+**The codec question is reopened.** What settles it is a motion sequence from
+the engine at a matched PSNR, and this document has neither. Until then,
+hardware AV1 remains the working choice on the strength of intra-refresh,
+fragment count and the licence position -- not on the strength of a bitrate
+ratio measured here.
+
+## The 16-bit path is safe, and free
+
+The same run scores the 16-bit encode against the 8-bit one on identical frames:
+
+| path | Mbps | PSNR |
+| --- | --- | --- |
+| 8-bit BGRA, LOW | 76.7 | 47.1 dB |
+| 16-bit RG64, LOW | 76.7 | **47.6 dB** |
+| 8-bit BGRA, FILMSCAN1 | 118.2 | 50.3 dB |
+| 16-bit RG64, FILMSCAN1 | 118.3 | **51.5 dB** |
+
+Same size, slightly better reconstruction, on a source that is only 8-bit to
+begin with. The earlier 12.8 dB result came from scaling white to `1<<13` on the
+encoder input; `WP13` is a decoder *output* convention and the encoder wants
+full range. Scaled correctly, `RG64` round-trips through `B64A` at parity or
+better, which is what was missing before the engine could be changed.
+
 ## What is still open
 
 - The CineForm baseline is now partly measured here, single-threaded only. The
