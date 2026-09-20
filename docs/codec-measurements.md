@@ -157,7 +157,8 @@ without a keyframe request -- the storm `PixelStream/Reassembly` was going to
 need a rule against. `encode_quantization_map` gives per-region quantization,
 so a foveated or region-of-interest stream costs nothing extra in protocol.
 
-**This retracts the recommendation two sections above.** That text proposes an
+**This retracts the recommendation two sections above** (itself later
+un-retracted -- see "nvenc.sigs is restored"). That text proposes an
 `nvenc.sigs` dlopen table on the `contract-bus` pattern. Vulkan Video is the
 better answer and needs no such thing: Godot is already a Vulkan engine holding
 a `VkDevice`, so the encoder is reached through the API the renderer already
@@ -261,6 +262,35 @@ already first on latency; it is now first on licensing as well, because sharing
 a texture encodes nothing and so infringes nothing. And CineForm's 470 Mbps buys
 something the table did not credit it for: Apache-2.0 OR MIT with no pool behind
 it, which on a 10GbE segment is a perfectly defensible trade.
+
+## nvenc.sigs is restored
+
+The Vulkan Video section retracted the `nvenc.sigs` recommendation. The section
+after it withdrew Vulkan Video. Withdrawing the replacement should have restored
+what it replaced, and did not -- so the chain is recorded here rather than
+tidied away, and `nvenc.sigs` stands.
+
+It is the right mechanism twice over. The `contract-bus` pattern exists for
+exactly a library the engine must not link: `iceoryx2.sigs` lists the C ABI,
+`generate_stubs.py` emits a dlsym dispatch table, and in its own words there is
+*"no -liceoryx2_ffi_c at link time, and no iceoryx2 headers at build time... it
+fails at start rather than at link if the library is absent."* That is the
+property wanted for an encoder -- no vendor SDK in the tree, no relinking
+obligation, and a clear runtime failure on a desk with no encoder.
+
+And it matches how NVENC is built to be used. The entry point is
+`NvEncodeAPICreateInstance` in the driver's own library -- `nvEncodeAPI64.dll`
+on Windows, `libnvidia-encode.so` on Linux -- which fills in a struct of
+function pointers. NVENC is already a runtime-loaded function table by design;
+`nvenc.sigs` writes that table down where the build can check it instead of
+leaving it hand-maintained.
+
+It also composes with what the measurements settled. The 3090 refuses AV1 at
+`CreateEncoder` rather than falling back silently, so the capability check has a
+place to live: the dispatch table loads, the encoder is asked for AV1, and the
+refusal is a start-time failure naming the card -- not a silent downgrade to an
+encumbered codec, which is the failure this document has spent two retractions
+avoiding.
 
 ## What is still open
 
