@@ -434,6 +434,46 @@ is most of what the extra bitrate buys. Any future comparison against AV1 has to
 put both codecs at a matched PSNR, which is exactly the quality-matching this
 document withdrew a ratio for lacking.
 
+## Decision: CineForm is not the pixel-streaming codec
+
+Tuned as far as it goes -- 4:2:2, LOW quality -- CineForm reaches 773 Mbps on
+high-detail content at 28.6 dB. Better than the 3309 Mbps it started at, and
+still not a streaming codec. The arithmetic that settles it is fragmentation,
+not bandwidth.
+
+At a 1200-byte datagram with an 18-byte header, one frame becomes this many
+fragments, and a frame dies if any one of them is lost:
+
+| codec | bytes/frame | fragments | frame loss @0.1% | @1% |
+| --- | --- | --- | --- | --- |
+| CineForm 4:4:4 HIGH | 6,893,750 | 5833 | 99.7% | 100% |
+| CineForm 4:2:2 LOW | 1,611,042 | 1363 | **74.4%** | 100% |
+| CineForm, RFD 1137's figure | 979,167 | 829 | 56.4% | 100% |
+| NVENC AV1, high-detail clip | 56,042 | **48** | **4.7%** | 38.3% |
+| NVENC AV1, smooth clip | 792 | 1 | 0.1% | 1.0% |
+
+Three quarters of frames dying on a tenth of a percent of packet loss is not a
+tuning problem. **Hardware AV1 is the pixel-streaming codec**, and CineForm
+stays what it is good at: the mastering path behind `--write-movie`, where
+visually lossless matters and 470 Mbps to a local disk is free.
+
+## This also answers the datagram question
+
+The README raises datagrams versus one reliable QUIC stream per frame as an open
+question, on the grounds that roughly 1250 datagrams a frame makes a single loss
+fatal. That arithmetic was CineForm's. At AV1's 48 fragments it changes sign:
+
+- **Datagrams are viable** at low loss -- 4.7% of frames dropped at 0.1%, which
+  for video is a dropped frame rather than a broken stream, especially with
+  `encode_intra_refresh` recovering without a keyframe request.
+- **They stop being viable around 1%**, where 38% frame loss arrives. That is
+  where a reliable stream per frame, or FEC, earns its cost.
+
+So the design is a loss-dependent choice rather than a fixed one, and the
+protocol should carry both paths rather than pick now. `WebTransportPeer`
+already exposes both, and `Reassembly.lean` already proves the datagram side is
+safe under reorder and loss.
+
 ## What is still open
 
 - The CineForm baseline is now partly measured here, single-threaded only. The
