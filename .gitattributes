@@ -1,0 +1,3 @@
+# mix format and lake read LF; a Windows desk with core.autocrlf=true
+# otherwise checks these out as CRLF and the vector diff fails against CI.
+* text=auto eol=lf

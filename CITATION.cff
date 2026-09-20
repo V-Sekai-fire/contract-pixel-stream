@@ -1,0 +1,103 @@
+cff-version: 1.2.0
+message: "If you use pixel-stream in academic or engineering work, please cite it as below."
+title: "pixel-stream: a Lean-specified frame protocol for Godot pixel streaming"
+abstract: >-
+  A wire contract and a Lean 4 specification for streaming a Godot render over
+  WebTransport. The Lean model proves monotone emit, no partial presentation, a
+  bounded reassembly buffer, all-or-nothing frame admission and echo
+  monotonicity; a generated corpus of delivery traces binds the header-only C++
+  reassembler to that model. Ships no service. Bounded end-to-end latency is
+  deliberately not proved -- there is no clock or network in the model -- and is
+  measured instead.
+type: software
+license: Apache-2.0 OR MIT
+authors:
+  - family-names: Lee
+    given-names: "K. S. Ernest (iFire)"
+    email: ernest.lee@chibifire.com
+    orcid: "https://orcid.org/0000-0003-4570-1436"
+version: 0.1.0
+date-released: "2026-09-20"
+repository-code: "https://github.com/V-Sekai-fire/contract-pixel-stream"
+keywords:
+  - pixel-streaming
+  - webtransport
+  - quic
+  - lean4
+  - formal-specification
+  - godot
+references:
+  - type: software
+    title: "contract-http3-queue"
+    authors:
+      - family-names: Lee
+        given-names: "K. S. Ernest (iFire)"
+    abstract: >-
+      Lean4 and Plausible model of the WebTransport/HTTP3 transport concurrency:
+      a mutex-guarded inbound queue proven size-honest and a starvation-free
+      network-thread loop. WHAT IS TAKEN is the layer boundary and the toolchain
+      pin -- http3-queue owns inbound delivery, this repository owns outbound
+      admission and frame reassembly. No proof or definition is copied, and the
+      mutex is deliberately not re-modelled here.
+    repository-code: "https://github.com/V-Sekai-fire/contract-http3-queue"
+    license: MIT
+  - type: software
+    title: "Plausible"
+    abstract: >-
+      Lean-community property-testing library. Used as a Lake dependency for
+      randomized cross-checks of the reassembly model. The build-time agreement
+      between the model and its declared expectations is decided by
+      `native_decide` rather than by Plausible, so a Plausible regression cannot
+      silently weaken the corpus.
+    repository-code: "https://github.com/leanprover-community/plausible"
+    license: Apache-2.0
+  - type: software
+    title: "picoquic"
+    authors:
+      - name: "Private Octopus, Inc."
+    abstract: >-
+      Minimal QUIC implementation in C, and the backend behind
+      `modules/http3/quic_picoquic_backend.cpp` in the entities-godot fork. This
+      repository takes NO picoquic code. What it takes is the datagram size
+      budget: the 1200-byte fragment in `wire.hpp` is chosen to fit a QUIC
+      datagram inside the common 1280-byte IPv6 minimum MTU.
+    repository-code: "https://github.com/private-octopus/picoquic"
+    license: MIT
+  - type: software
+    title: "picotls"
+    abstract: >-
+      TLS 1.3 implementation that picoquic binds to for QUIC crypto, vendored in
+      the engine fork at `thirdparty/picotls` and requiring `builtin_mbedtls`.
+      Named here because it is in the trust path of any stream this protocol
+      carries; no code is taken.
+    repository-code: "https://github.com/h2o/picotls"
+    license: MIT
+  - type: software
+    title: "GoPro CineForm SDK"
+    authors:
+      - name: "GoPro, Inc."
+    abstract: >-
+      Intra-frame wavelet codec, the workspace's sanctioned substitute for the
+      blocklisted FFmpeg. Named as the incumbent the codec question is measured
+      against, not as a dependency: this repository contains no codec code and
+      the protocol is GOP-parameterized so an inter-frame codec needs no wire
+      change. Its measured 0.47 Gbit/s at 1080p60 is the reason the codec
+      question is open at all.
+    repository-code: "https://github.com/gopro/cineform-sdk"
+    license: Apache-2.0 OR MIT
+  - type: standard
+    title: "An Unreliable Datagram Extension to QUIC"
+    authors:
+      - name: "T. Pauly, E. Kinnear, D. Schinazi"
+    year: 2022
+    url: "https://www.rfc-editor.org/rfc/rfc9221.html"
+    license: "IETF Trust License"
+    identifiers:
+      - type: other
+        value: "RFC 9221"
+        description: "The datagram extension the unreliable path depends on."
+    notes: >-
+      The extension that makes fire-and-forget frame delivery possible without
+      head-of-line blocking. This repository does not assume it is the right
+      choice: one reliable stream per frame is a live alternative, and the README
+      records why.

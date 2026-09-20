@@ -1,0 +1,53 @@
+name: checks
+
+on:
+  push:
+    branches: ["main/main"]
+  pull_request:
+  merge_group:
+
+jobs:
+  lean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: leanprover/lean-action@v1
+        with:
+          build-args: "PixelStream"
+          test: false
+          lint: false
+
+      # The corpus is a build artifact of the model. Regenerating it must be a
+      # no-op, or the committed vectors and the proofs have drifted apart and
+      # the C++ is being checked against a model nobody proved.
+      - name: vectors are current
+        run: |
+          lake exe wire_vectors > /tmp/corpus.txt
+          diff -u vectors/corpus.txt /tmp/corpus.txt
+
+      - name: no sorry
+        run: |
+          if grep -rnw sorry PixelStream/ Main.lean; then
+            echo "a proof is stubbed"; exit 1
+          fi
+
+  proof:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: build
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build
+
+      # Runs the corpus and the two controls: a reassembler that emits on the
+      # first fragment must be refused, and a corpus that fails to load must
+      # fail rather than pass quietly.
+      - name: conformance
+        run: ./build/vector_replay vectors/corpus.txt
+
+      - name: missing corpus is a failure, not a skip
+        run: |
+          if ./build/vector_replay vectors/absent.txt; then
+            echo "a missing corpus passed, so this gate is decoration"; exit 1
+          fi
