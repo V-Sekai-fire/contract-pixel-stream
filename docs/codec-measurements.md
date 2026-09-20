@@ -169,6 +169,60 @@ video-encode queue is engine work that does not exist yet, and it is larger than
 calling NVENC would be. That is the trade -- more work now, one path for three
 vendors afterwards.
 
+## Retracted: Vulkan Video is not warranted, NVENC directly is
+
+The section above recommends Vulkan Video over NVENC for vendor neutrality.
+That recommendation is withdrawn, for a reason the measurement already contained.
+
+The operator's compute is two NVIDIA cards, and the working agreements say owned
+GPUs are the only compute. Vendor neutrality therefore buys nothing today: there
+is no AMD or Intel card for the abstraction to reach. Against that, the same
+section concedes the cost in its own words -- exposing a Vulkan video-encode
+queue is engine work larger than calling NVENC would be, and the fork references
+no `VK_KHR_video` symbol today.
+
+Nor does Vulkan Video paper over the split inside this desk. `VK_KHR_video_encode_av1`
+is absent on the 3090, so the abstraction does not make one path across the
+operator's own two cards; it makes the same two paths behind a longer route.
+
+So: **NVENC directly on the 4090, HEVC on the 3090.** `intra_refresh` is an NVENC
+feature rather than a Vulkan one, so the capability that matters for loss
+recovery is not given up. Vulkan Video becomes worth revisiting when a non-NVIDIA
+card is actually owned, and not before.
+
+## The device index is not the device, and the encoder says so out loud
+
+Resolving which card produced the AV1 numbers turned up a trap worth recording.
+
+`nvidia-smi` reports index 0 as the RTX 3090 and index 1 as the RTX 4090. CUDA
+does not use that order: its default is fastest-first, so CUDA device 0 is the
+4090. Pinning the order makes it unambiguous:
+
+| ordering | device 0 | device 1 |
+| --- | --- | --- |
+| `nvidia-smi` (PCI) | 3090 | 4090 |
+| CUDA default (fastest first) | 4090 | 3090 |
+| `CUDA_DEVICE_ORDER=PCI_BUS_ID`, AV1 accepted? | no | yes |
+
+The AV1 figures in the first table were produced under CUDA's default ordering
+and are therefore the 4090's. They stand.
+
+**And the important half: there is no silent fallback.** Asked for AV1 on the
+3090, NVENC refuses with `PyNvEncoderCaps` rather than quietly encoding
+something else or dropping to the CPU. That is the failure mode the Mitsuba row
+in `BLOCKLIST.md` exists to warn about, and this encoder does not have it. A run
+that reports AV1 on this desk really did use the AV1 block.
+
+Per card, 60-frame runs, same source:
+
+| card | AV1 | HEVC |
+| --- | --- | --- |
+| RTX 4090 | 2.39 ms, 30.3 Mbps | 1.10 ms, 20.2 Mbps |
+| RTX 3090 | **refused** | 2.64 ms, 20.1 Mbps |
+
+The 120-frame figures in the first table are the better estimate; these shorter
+runs carry more start-up cost per frame.
+
 ## What is still open
 
 - The CineForm baseline needs measuring here before this table is quoted.
@@ -179,8 +233,8 @@ vendors afterwards.
   cost, not glass-to-glass.
 - The RTX 3090 has no AV1 encoder. A two-card desk is not a uniform target, and
   the fallback path is unmeasured.
-- No Vulkan Video encode was actually run here; only extension presence was
-  checked. Presence is not throughput, and the NVENC figures above are NVENC's,
+- No Vulkan Video encode was ever run here; only extension presence was
+  checked, and the recommendation that rested on it is now withdrawn. Presence is not throughput, and the NVENC figures above are NVENC's,
   not Vulkan Video's, even though the silicon is the same block.
 - Spout, Syphon and the Linux equivalent are unmeasured here. The same-machine
   case deserves its own measurement before the scope narrowing above is written
