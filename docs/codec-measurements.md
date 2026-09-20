@@ -338,6 +338,48 @@ hardware AV1 is dramatically smaller for streaming -- but **the multiplier is
 not established by anything measured here**, and the earlier figure should not
 be quoted until a quality-matched run exists.
 
+## Tuning CineForm down: 4:2:2 is the lever, and it still does not reach AV1
+
+Three knobs exist. Measured together, 1080p, 24 frames, single encoder:
+
+| clip | format | LOW | MEDIUM | HIGH | FILMSCAN1 |
+| --- | --- | --- | --- | --- | --- |
+| high-detail noise | 4:4:4 | 2062 | 2635 | 3309 | 3738 |
+| high-detail noise | 4:2:2 | **773** | 857 | 1071 | 1352 |
+| smooth gradient | 4:4:4 | 161 | 169 | 184 | 208 |
+| smooth gradient | 4:2:2 | **90.5** | 93.6 | 98.9 | 107 |
+
+All figures Mbps at 60 fps.
+
+**`CFHD_ENCODED_FORMAT_YUV_422` is the biggest single lever and it was being
+left on the table.** `modules/cineform` encodes `RGB_444` (or `RGBA_4444` when
+alpha is kept). Switching to 4:2:2 cuts the wire by 2.7x on hard content and
+1.8x on easy, *and* roughly doubles encode speed -- 53 fps against 27 on the
+same clip and encoder. For a stream it is better on both axes at once. The cost
+is chroma resolution, which shows on text and thin UI edges and rarely on
+rendered 3D.
+
+Quality level is the weakest knob: LOW to FILMSCAN1 spans only 1.8x on hard
+content and 1.3x on easy. Content dominates everything -- 13x between the two
+clips at the same settings.
+
+**But the answer to "closer to AV1" is no.** Best measured CineForm is 90.5
+Mbps, on easy content at 4:2:2 LOW. NVENC AV1 on that same easy clip was 0.38
+Mbps, and 26.9 Mbps on the hard one at 4:2:2's 773. The gap is between 29x and
+240x depending on the clip, and neither pair is quality-matched, so treat those
+as magnitudes rather than ratios.
+
+That is not a tuning failure, it is the codec's design. CineForm is a mezzanine
+codec built to sit around 10:1 from uncompressed and stay visually lossless
+through repeated edits. 1080p60 4:2:2 8-bit uncompressed is roughly 2 Gbps, so
+90 Mbps is already past its nominal ratio. Asking it for delivery bitrates asks
+it to stop being the thing it was chosen for.
+
+**What this changes.** 4:2:2 should be adopted regardless -- it is free speed
+and a third of the wire for a LAN deployment, and it makes the 10GbE row in the
+ranking comfortable rather than marginal. It does not move CineForm out of the
+LAN row and into the WAN row. Hardware AV1 stays the WAN answer.
+
 ## What is still open
 
 - The CineForm baseline is now partly measured here, single-threaded only. The
