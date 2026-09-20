@@ -1,0 +1,31 @@
+# The NVENC entry points the streamer calls.
+#
+# Fed to the same generator contract-bus uses for iceoryx2.sigs: a dlsym-backed
+# dispatch table, so there is no -lnvencodeapi at link time and no NVIDIA SDK on
+# the include path. The binary builds on a machine that has never seen an NVIDIA
+# driver and fails at start rather than at link when one is absent.
+#
+# NVENC exports exactly two symbols. Verified on this desk against
+# C:\Windows\System32\nvEncodeAPI64.dll, driver 32.0.16.1692:
+#
+#     1  NvEncodeAPICreateInstance
+#     2  NvEncodeAPIGetMaxSupportedVersion
+#
+# THIS IS WHERE THE PATTERN STOPS SHORT, and it is worth saying plainly.
+# iceoryx2 exports every call, so its .sigs covers the whole ABI. NVENC does
+# not: NvEncodeAPICreateInstance fills in an NV_ENCODE_API_FUNCTION_LIST, and
+# every actual operation -- open session, create bitstream buffer, encode
+# picture -- is a function pointer inside that struct. A .sigs file cannot
+# express a struct layout, so the function list still needs a header that
+# matches the driver's NVENCAPI_VERSION and is checked some other way.
+#
+# So this buys the loader and the start-time failure, not the whole ABI.
+#
+# Format: one C declaration per line. A comment starts with '#'.
+#
+# Signatures below are transcribed from the NVIDIA Video Codec SDK's
+# nvEncodeAPI.h, which is NOT present on this desk. They are unverified against
+# the header and must be checked before this file is used to generate anything.
+
+NVENCSTATUS NvEncodeAPICreateInstance(NV_ENCODE_API_FUNCTION_LIST *functionList);
+NVENCSTATUS NvEncodeAPIGetMaxSupportedVersion(uint32_t *version);
