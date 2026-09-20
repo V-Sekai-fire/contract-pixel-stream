@@ -117,6 +117,58 @@ of the three is measured on this desk yet -- the figures above are published,
 not observed here, and `modules/texture_streaming` in the fork is GPU asset
 streaming, unrelated to frame export.
 
+## A GPGPU AV1 encoder, and why the answer is Vulkan Video instead
+
+The thing asked for -- AV1 encoded entirely in compute shaders, vendor-neutral,
+no fixed-function block -- is real but not shippable here.
+
+It exists: FFmpeg's Vulkan work runs motion estimation, transform, quantization
+and entropy coding as compute, actively developed in mainline as of 2026. It is
+also the one codebase this workspace cannot link, for the reason FFmpeg is
+blocklisted in the first place.
+
+And there is a structural reason it stays hard. AV1's entropy coder is a
+symbol-adaptive arithmetic coder whose backward adaptation is strictly serial in
+the coefficients, and intra prediction depends on neighbouring blocks, so the
+two least parallel stages are the two a GPU is worst at. Forward-adaptation
+modes parallelize; the default does not.
+
+**The property actually wanted is vendor neutrality, not GPGPU** -- an encoder
+that is not NVIDIA-only. Vulkan Video delivers that without compute shaders, by
+putting the fixed-function block behind a Khronos extension that AMD and Intel
+implement too.
+
+Measured on this desk, per device rather than from a merged extension list:
+
+| GPU | `VK_KHR_video_encode_av1` | `..._intra_refresh` | `..._quantization_map` |
+| --- | --- | --- | --- |
+| RTX 4090 | **yes** | yes | yes |
+| RTX 3090 | **no** | yes | yes |
+
+Driver 616.92. The per-device split is the point: Ampere has no AV1 encoder, and
+a merged list would have reported AV1 support for a card that has none.
+
+Two of those extensions bear directly on problems already written down here.
+`encode_intra_refresh` replaces periodic keyframes with a rolling intra region,
+which removes the keyframe bitrate spike and lets a decoder recover from loss
+without a keyframe request -- the storm `PixelStream/Reassembly` was going to
+need a rule against. `encode_quantization_map` gives per-region quantization,
+so a foveated or region-of-interest stream costs nothing extra in protocol.
+
+**This retracts the recommendation two sections above.** That text proposes an
+`nvenc.sigs` dlopen table on the `contract-bus` pattern. Vulkan Video is the
+better answer and needs no such thing: Godot is already a Vulkan engine holding
+a `VkDevice`, so the encoder is reached through the API the renderer already
+uses -- no vendor SDK, no dlopen, no new dependency mechanism, and AMD and Intel
+work for free. The `.sigs` pattern remains correct for a library the engine does
+not already link; it is simply not needed for this one.
+
+The fork does not touch Vulkan Video today: nothing in `drivers/vulkan/` or
+`servers/rendering/` references `VK_KHR_video` or `vkCmdEncodeVideo`. Exposing a
+video-encode queue is engine work that does not exist yet, and it is larger than
+calling NVENC would be. That is the trade -- more work now, one path for three
+vendors afterwards.
+
 ## What is still open
 
 - The CineForm baseline needs measuring here before this table is quoted.
@@ -127,6 +179,9 @@ streaming, unrelated to frame export.
   cost, not glass-to-glass.
 - The RTX 3090 has no AV1 encoder. A two-card desk is not a uniform target, and
   the fallback path is unmeasured.
+- No Vulkan Video encode was actually run here; only extension presence was
+  checked. Presence is not throughput, and the NVENC figures above are NVENC's,
+  not Vulkan Video's, even though the silicon is the same block.
 - Spout, Syphon and the Linux equivalent are unmeasured here. The same-machine
   case deserves its own measurement before the scope narrowing above is written
   into an RFD as settled.
