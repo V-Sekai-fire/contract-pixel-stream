@@ -29,6 +29,12 @@ jobs:
       # Grepping the source is not enough: a tactic can introduce `sorry`
       # without the word appearing anywhere, which is how `plausible` closes a
       # goal it could not falsify. Read the compiler's own warning instead.
+      # Runs as a program, not a tactic, so nothing is admitted. Fails on a
+      # counter-example, and equally on a budget hit -- an exhausted search is
+      # not a clean negative.
+      - name: falsification search
+        run: lake exe falsify
+
       - name: no sorry, including tactic-introduced
         run: |
           lake build 2>&1 | tee build.log

@@ -6,4 +6,4 @@ import PixelStream.Admission
 import PixelStream.Echo
 import PixelStream.Codec
 import PixelStream.Vectors
-import PixelStream.Falsify
+import PixelStream.Witness

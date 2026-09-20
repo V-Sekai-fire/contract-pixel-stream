@@ -1,9 +1,18 @@
 name = "pixel_stream"
 defaultTargets = ["PixelStream"]
 
+[[require]]
+name = "plausible-witness-dag"
+git = "https://github.com/V-Sekai-fire/plausible-witness-dag"
+rev = "23ca437da267"
+
 [[lean_lib]]
 name = "PixelStream"
 
 [[lean_exe]]
 name = "wire_vectors"
 root = "Main"
+
+[[lean_exe]]
+name = "falsify"
+root = "Falsify"

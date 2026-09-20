@@ -77,8 +77,8 @@ Windows 11 26200.
 | C++ vs the Lean corpus | 8 of 8 traces agree |
 | broken-reassembler control | refused by **7 of 8** traces |
 | missing-corpus control | exits 1, does not pass quietly |
-| randomized sweep | 400 traces x 24 fragments, seed `0x2545F491`, decided |
-| sweep falsifiability control | the same 400 traces find the broken reassembler |
+| falsification search | 4000 candidate traces, `provablyNone` |
+| search falsifiability control | the broken reassembler caught at candidate 0 |
 
 The control is refused by 7 of 8 rather than 8 of 8, and the exception is worth
 stating: `two-frames` gives every frame a single fragment, so a reassembler that
@@ -86,23 +86,34 @@ emits on the first fragment is accidentally right. That is the argument for
 keeping multi-fragment and malformed traces in the corpus — against a
 single-fragment corpus this gate would certify the defect.
 
-## Plausible was evaluated and rejected
+## The falsification search, and why not the `plausible` tactic
 
-`plausible` is the obvious tool for randomized falsification here, and it is not
-used. Its tactic searches for a counter-example and, finding none, closes the
-goal with `sorry`: three properties that way built cleanly, reported "unable to
-find a counter-example", and left three admitted declarations behind. That
+`lake exe falsify` searches for a delivery trace that breaks monotonicity,
+provenance or uniqueness, using `plausible-witness-dag`'s `resolve` ladder. It
+runs as a program, so nothing is admitted.
+
+The `plausible` TACTIC is deliberately not used. It searches for a
+counter-example and, finding none, closes the goal with `sorry`. Three
+properties were written that way first: they built cleanly, reported "unable to
+find a counter-example", and left three admitted declarations behind, which
 exports a tested guess as a proven fact.
 
-`PixelStream/Falsify.lean` does the same search over a seeded xorshift generator
-and settles it with `native_decide`, so nothing is admitted and a failure is
-reproducible from the seed. The sweep carries its own control: the same 400
-traces are run against a reassembler that emits on its first fragment, and must
-find it out.
+Two details of the harness are worth stating rather than implying:
+
+- **A budget hit is a failure, not a pass.** `resolve` reports `budgetHit`
+  separately from `provablyNone`, and `Falsify.lean` treats an exhausted search
+  as a failing run. An unmet precondition is a FAIL.
+- **The search width is the readback's, not the ladder's.** `resolve` decides
+  the outcome from the deterministic readback and discards `certify`'s return,
+  so the number that matters is the 4000 candidate traces the readback walks,
+  not the ladder's `finBound`.
+
+The search carries its own control: the same query is run against a reassembler
+that emits on its first fragment and must catch it, which it does at candidate 0.
 
 The lesson generalised into the gate. Grepping sources for `sorry` would not
-have caught this, because no source said `sorry` -- the tactic introduced it. CI
-now reads the compiler's own `declaration uses 'sorry'` warning as well.
+have caught the tactic, because no source said `sorry` -- the tactic introduced
+it. CI now reads the compiler's own `declaration uses 'sorry'` warning as well.
 
 ## Known gaps
 

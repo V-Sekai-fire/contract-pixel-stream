@@ -42,16 +42,29 @@ references:
     repository-code: "https://github.com/V-Sekai-fire/contract-http3-queue"
     license: MIT
   - type: software
+    title: "plausible-witness-dag"
+    authors:
+      - family-names: Lee
+        given-names: "K. S. Ernest (iFire)"
+    abstract: >-
+      Lean/Lake library layering an iterative-deepening ladder and deterministic
+      readback over Plausible. Used for the counter-example search in
+      `Falsify.lean`. WHAT IS TAKEN is the `resolve` driver and its `Outcome`
+      type; what matters about it here is that it drives Plausible through
+      `Testable.checkIO` as a program rather than as a tactic, so no goal is
+      admitted, and that it reports `budgetHit` separately from `provablyNone`
+      so an exhausted search cannot read as a clean negative.
+    repository-code: "https://github.com/V-Sekai-fire/plausible-witness-dag"
+    license: MIT
+  - type: software
     title: "Plausible"
     abstract: >-
-      Lean-community property-testing library. Evaluated and NOT used. Its
-      `plausible` tactic searches for a counter-example and, finding none,
-      closes the goal with `sorry` -- which exports a tested guess as a proven
-      fact. `PixelStream/Falsify.lean` runs the same kind of randomized search
-      over a seeded generator and settles the result with `native_decide`
-      instead, so nothing is admitted. Cited because the design owes it the
-      idea, not the code, and because recording why a reasonable tool was
-      rejected is worth more than silence.
+      Lean-community property-testing library, reached transitively through
+      plausible-witness-dag and used via `Testable.checkIO`. Its `plausible`
+      TACTIC is deliberately not used anywhere in this repository: it closes a
+      goal it cannot falsify with `sorry`, which exports a tested guess as a
+      proven fact. Three properties were written that way first and are
+      recorded in the history as the reason the rule exists.
     repository-code: "https://github.com/leanprover-community/plausible"
     license: Apache-2.0
   - type: software
