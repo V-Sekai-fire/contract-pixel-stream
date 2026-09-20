@@ -78,6 +78,45 @@ An `nvenc.sigs` gives the same property for the encoder: nothing linked, no
 vendor SDK in the tree, no relinking obligation, and a clear runtime failure on
 a machine with no encoder rather than a build that cannot be produced.
 
+## Reranked, once texture sharing is on the list
+
+Spout is not a codec, and that is exactly why it outranks every codec for one
+of the cases this project targets. It shares the GPU texture itself between
+processes on one machine through a DirectX 11 shared texture -- no encode, no
+bitstream, no bitrate, and nothing to be patented. Published figure is about
+0.45 ms for 4K60. Licence is BSD 2-Clause. Syphon is the macOS equivalent, MIT.
+
+So the ranking is not one list, it is one list per deployment:
+
+| case | first choice | cost |
+| --- | --- | --- |
+| client and server on one machine | **Spout** (Windows) / **Syphon** (macOS) | Windows-only and macOS-only respectively; no network at all |
+| one LAN | NVENC AV1 -- 1.75 ms, 26.9 Mbps | needs an encoder on the box; RTX 3090 has none |
+| over a WAN | NVENC AV1 | the only row that fits a home uplink |
+| no encoder present | SVT-AV1 preset 12 | 60 fps only by taking all 16 threads |
+| 10GbE and latency above all | CineForm, 470 Mbps | will not leave a LAN |
+
+**The uncomfortable part.** For the same-machine case, Spout does not merely
+beat the codecs -- it removes the need for this repository's frame protocol
+entirely. There is no fragmentation, no reassembly and no loss to reason about
+when the consumer reads the producer's texture. Several of the targets named in
+the README are same-machine: CI screenshotting, and feeding a local capture or
+streaming application.
+
+That does not sink the protocol, but it does narrow its claim. The frame
+protocol earns its place when a network is between the two ends, and the honest
+statement of scope is that a same-machine consumer should use texture sharing
+and skip all of this. An RFD that says so is stronger than one that quietly
+covers the same-machine case with a worse mechanism.
+
+**What Spout does not do.** It does not cross machines, so it replaces nothing
+for thin clients or render farms. It is also per-platform in a way the codecs
+are not: three mechanisms (Spout, Syphon, and DMABUF or PipeWire on Linux)
+against one AV1 bitstream, on a launcher that already ships four targets. None
+of the three is measured on this desk yet -- the figures above are published,
+not observed here, and `modules/texture_streaming` in the fork is GPU asset
+streaming, unrelated to frame export.
+
 ## What is still open
 
 - The CineForm baseline needs measuring here before this table is quoted.
@@ -88,3 +127,6 @@ a machine with no encoder rather than a build that cannot be produced.
   cost, not glass-to-glass.
 - The RTX 3090 has no AV1 encoder. A two-card desk is not a uniform target, and
   the fallback path is unmeasured.
+- Spout, Syphon and the Linux equivalent are unmeasured here. The same-machine
+  case deserves its own measurement before the scope narrowing above is written
+  into an RFD as settled.
