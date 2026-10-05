@@ -5,8 +5,8 @@ import PixelStream.Vectors
 /-!
 The counter-example search, posed as a witness query.
 
-`plausible`'s tactic is not used here: it closes a goal it cannot falsify with
-`sorry`, which exports a tested guess as a proven fact. `plausible-witness-dag`
+`plausible`'s tactic is not used here: it closes a goal it cannot falsify by
+admitting it, which exports a tested guess as a proven fact. `plausible-witness-dag`
 drives the same engine through `Testable.checkIO`, so the search runs as a
 program and nothing is admitted. It also reports `budgetHit` separately from
 `provablyNone`, which is the distinction that matters -- an exhausted budget
